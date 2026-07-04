@@ -1,22 +1,104 @@
-# 2_Code/ - 源代码目录
+# N体轨道积分——太阳系简化模型与 Leapfrog 守恒性分析
 
-**目的**: 存放所有用于模拟、分析和可视化的代码。代码的质量是评分的重要组成部分。
+## 项目概述
 
-### **结构原则：**
-本项目**不强制要求固定文件名**，但必须遵循**逻辑解耦**的原则。建议按照以下功能模块划分您的代码：
+本项目实现了基于 Leapfrog（速度 Verlet）和 Euler 方法的 N 体轨道积分，
+用于模拟太阳系简化模型并分析辛积分器的长期能量守恒优势。
 
-1.  **入口模块** (如 `main.py`): 负责设置物理参数、初始化环境、调用算法并启动流程。
-2.  **物理/算法模块** (如 `solvers.py` 或 `physics.py`): 实现核心数值算法（如 RK4, Metropolis, PINN 损失函数等）。应保持独立性，不包含绘图逻辑。
-3.  **分析与可视化** (如 `analysis.py` 或 `plot_utils.py`): 负责处理原始数据、计算物理量（如能量偏差、关联函数）并生成论文所需的图表。
+## 文件结构
 
-### **必需文件：**
-- **`README.md` (本文件)**: 必须清晰说明：
-    - 每个代码文件的功能。
-    - 如何配置环境 (`pip install -r requirements.txt`)。
-    - **如何运行主程序**以得到论文中的结果。
-- **`requirements.txt`**: 项目依赖清单。
+```
+2_Code/
+├── physics.py       # 物理模块：引力加速度、能量、角动量、轨道根数、初始化
+├── solvers.py       # 数值积分模块：Euler (一阶非辛) 和 Leapfrog (二阶辛)
+├── analysis.py      # 分析与可视化：能量/角动量历史、Kozai-Lidov 追踪、收敛性
+├── main.py          # 主程序：参数设置、三类模拟运行、结果输出
+├── requirements.txt # 依赖清单
+└── README.md        # 本文件
+```
 
-### **代码规范要求：**
-- **物理注释**: 必须对核心物理方程和算法步骤进行注释。
-- **参数化设计**: 物理参数应集中定义，严禁在循环中出现“魔法数字”。
-- **AI 声明**: 若使用 AI 辅助编写，需在代码中注明。
+## 运行步骤
+
+### 1. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. 运行主程序
+
+```bash
+python main.py
+```
+
+### 3. 输出文件
+
+**图像文件** (`../1_论文/assets/`):
+
+| 文件 | 内容 |
+|------|------|
+| `orbit_2body_euler.png` | Euler 两体轨道 (螺旋外扩 -> 能量漂移) |
+| `orbit_2body_leapfrog.png` | Leapfrog 两体轨道 (闭合椭圆 -> 能量守恒) |
+| `energy_comparison_2body.png` | 能量时间序列对比 (Leapfrog vs Euler) |
+| `energy_error_2body.png` | 相对能量误差半对数图 |
+| `angular_momentum_2body.png` | 角动量守恒对比 |
+| `comprehensive_2body.png` | 六合一综合对比面板 (推荐用于论文) |
+| `orbit_3body_leapfrog_2d.png` | 三体系统 x-y 轨道投影 |
+| `orbit_3body_leapfrog_3d.png` | 三体系统 3D 轨道 |
+| `energy_3body_leapfrog.png` | 三体系统能量守恒 |
+| `kozai_lidov_evolution.png` | Kozai-Lidov 机制四面板分析 |
+| `convergence_test.png` | 收敛性与精度阶数验证 (含理论斜率) |
+
+**数据文件** (`../3_Data/`):
+- `simulation_2body_leapfrog.csv`
+- `simulation_2body_euler.csv`
+- `convergence_test.csv`
+
+## 核心算法
+
+### 物理方程
+
+牛顿万有引力（含软化参数 ε）：
+$$ \mathbf{a}_i = \sum_{j 
+eq i} G rac{m_j}{(|r_{ij}|^2 + arepsilon^2)^{3/2}} \mathbf{r}_{ij} $$
+
+系统总能量：
+$$ E = \sum_i rac{1}{2} m_i v_i^2 - \sum_{i<j} G rac{m_i m_j}{r_{ij}} $$
+
+### 数值方法
+
+**Euler (一阶精度, 非辛)**：
+$$ \mathbf{v}_{n+1} = \mathbf{v}_n + \mathbf{a}_n \Delta t $$
+$$ \mathbf{r}_{n+1} = \mathbf{r}_n + \mathbf{v}_n \Delta t $$
+
+**Leapfrog / 速度 Verlet (二阶精度, 辛)**：
+$$ \mathbf{v}_{n+1/2} = \mathbf{v}_n + 	frac{1}{2} \mathbf{a}_n \Delta t $$
+$$ \mathbf{r}_{n+1} = \mathbf{r}_n + \mathbf{v}_{n+1/2} \Delta t $$
+$$ \mathbf{a}_{n+1} = \mathbf{f}(\mathbf{r}_{n+1}) $$
+$$ \mathbf{v}_{n+1} = \mathbf{v}_{n+1/2} + 	frac{1}{2} \mathbf{a}_{n+1} \Delta t $$
+
+### 单位系统
+
+- 长度: AU, 质量: M_sun, 时间: yr -> G = 4pi^2
+
+## 模拟参数
+
+| 模拟 | 天体 | dt (yr) | 时长 (yr) | 方法 |
+|------|------|---------|-----------|------|
+| 两体系统 | 太阳-地球 | 0.001 | 100 | Euler + Leapfrog |
+| 三体系统 | 太阳-木星-小行星 | 0.01 | 500 | Leapfrog |
+| 收敛性测试 | 太阳-地球 | 0.001-0.1 | 10 | Euler + Leapfrog |
+
+## 关键发现
+
+1. Leapfrog 能量误差保持在 10^-10 以下（100 年模拟），Euler 能量漂移超过 65%
+2. 误差比 (Euler/Leapfrog) 超过 10^13
+3. 收敛性测试揭示 Euler 的非辛性质导致系统性能量漂移
+4. 三体系统成功观测到 Kozai-Lidov 机制的 e-i 耦合振荡
+
+## AI 使用声明
+
+本项目代码使用 AI 辅助编写，包括：
+- 算法框架设计与模块划分
+- 引力加速度的半向量化优化
+- 可视化模块开发
